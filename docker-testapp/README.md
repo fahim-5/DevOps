@@ -259,6 +259,103 @@ Login with:
 
 Once logged in, you can visually manage your MongoDB data through the Mongo-Express web interface.
 
+
+
+# **Docker Compose**
+
+A tool that lets you **define and run multi-container Docker applications** using a single configuration file (`docker-compose.yml`).
+Instead of running multiple `docker run` commands, you declare everything once and start all services together.
+
 ---
+
+## **YAML File**
+
+* **YAML** (YAML Ain’t Markup Language) is a human-readable format used to define settings in Docker Compose.
+* Organizes configuration in **key-value pairs** using indentation (no brackets or commas).
+
+---
+
+## **How to Run**
+
+* **Default file name (`docker-compose.yml`)** in current or root directory:
+
+  ```bash
+  docker compose up -d
+  ```
+* **Custom file name** (e.g., `mongo-setup.yaml`):
+
+  ```bash
+  docker compose -f mongo-setup.yaml up -d
+  ```
+
+**Flags:**
+
+* `up` → Creates and starts all containers/services from the YAML.
+* `-d` → Runs containers in **detached mode** (background).
+
+---
+
+## **How to Delete All Containers Together**
+
+* **Stop and remove containers** (with networks and volumes defined in YAML):
+
+  ```bash
+  docker compose down
+  ```
+* **If custom YAML file**:
+
+  ```bash
+  docker compose -f mongo-setup.yaml down
+  ```
+* **Remove volumes too** (wipes data):
+
+  ```bash
+  docker compose down -v
+  ```
+
+---
+
+## **Why No Need to Create Network**
+
+* Docker Compose **automatically creates a default bridge network** for all services.
+* Containers can talk to each other by **service name** (e.g., `mongo`).
+
+---
+
+## **Benefits**
+
+1. **Simplicity** – One command to manage multiple containers.
+2. **Automatic Networking** – No manual network setup.
+3. **Reproducibility** – Works the same on any machine.
+4. **Environment Management** – Set usernames, passwords, ports easily.
+
+---
+
+## **Example (`docker-compose.yml`)**
+
+```yaml
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: qwerty
+    
+  mongo-express:
+    image: mongo-express
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: admin
+      ME_CONFIG_MONGODB_ADMINPASSWORD: qwerty
+      ME_CONFIG_MONGODB_URL: mongodb://admin:qwerty@mongo:27017/
+```
+
+---
+
 
 
