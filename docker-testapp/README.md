@@ -453,3 +453,240 @@ docker login
 # 3. Push the image
 docker push <your_dockerhub_username>/<repo_name>:latest
 ```
+
+# **Docker Volume**
+
+A **Docker volume** is a storage mechanism that lets you persist data generated or used by Docker containers, so that data isn’t lost when the container stops, restarts, or is deleted.
+
+Think of it like an **external hard drive for your containers** — the container can come and go, but the volume keeps your files safe.
+
+**Key points:**
+
+* Managed by Docker (lives outside the container’s filesystem).
+* Can be shared between multiple containers.
+* Ideal for databases, logs, uploads, etc.
+* Created and managed using `docker volume` commands.
+
+Gotcha — the **Dockerfile** itself doesn’t actually create or manage volumes.
+Instead, you **declare a `VOLUME`** in the Dockerfile (optional) and then bind or name it in your **docker-compose.yml** to make it functional.
+
+Here’s the workflow:
+
+---
+
+### **1️⃣ Modify the Dockerfile**
+
+```dockerfile
+
+VOLUME ["/app/data"]
+
+```
+
+---
+
+### **2️⃣ Create docker-compose.yml with volume**
+
+```yaml
+version: "3.8"
+services:
+  myapp:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - C:\Users\Fahim\Desktop\data:/app/data   # named volume mapping
+
+volumes:
+  myapp_data:                  # volume definition
+```
+
+---
+
+This follows the **host\:container** mapping format:
+
+1. **`C:\Users\Fahim\Desktop\data`** → **Host path**
+
+   * This is a folder on **your local Windows machine**.
+   * Docker will read/write here directly.
+   * Any changes in this folder instantly appear in the container, and vice versa.
+
+2. **`/app/data`** → **Container path**
+
+   * This is the folder inside the container where the host folder will be mounted.
+   * Your app inside the container will treat this as normal storage, but files actually live on your host machine.
+
+---
+
+### How it works
+
+* If your app saves a file in `/app/data` inside the container → it appears in `C:\Users\Fahim\Desktop\data` on your PC.
+* If you drop a file into `C:\Users\Fahim\Desktop\data` → it appears instantly inside `/app/data` in the container.
+
+---
+
+💡 **Pro Tip:**
+This is called a **bind mount** — perfect for local dev because you can live-edit files without rebuilding the container.
+For production, named volumes (`mydata:/app/data`) are safer because they’re fully managed by Docker.
+
+---
+When I say Docker **“manages”** a volume, I mean:
+
+* **Storage location** → Docker decides where on your host the volume’s data physically lives (usually inside `/var/lib/docker/volumes` on Linux, hidden from you).
+* **Lifecycle** → It creates, tracks, and deletes the volume when you tell it to (`docker volume create` / `docker volume rm`).
+* **Isolation** → Other processes on your host can’t accidentally overwrite or delete the data (unlike a bind mount where your OS files are exposed).
+* **Portability** → Volumes can be moved, backed up, and even attached to new containers without touching your app code.
+* **Consistency** → Docker ensures that the volume is always mounted with the right permissions and format for the container.
+
+So in short:
+With a **bind mount**, *you* are the landlord — you control the folder and Docker just rents it.
+With a **named volume**, *Docker* is the landlord — it owns the building and you just store your stuff there.
+
+---
+
+Got it — here’s the trimmed version of your notes:
+
+---
+
+## **Docker Compose + Volumes — Quick Steps**
+
+**Run Compose**
+
+```bash
+docker compose -f file_name.yaml up -d
+```
+
+* Starts containers in the background.
+* If file is `docker-compose.yml`, you can omit `-f file_name.yaml`.
+
+**Access App**
+
+* Visit `http://localhost:<port>` in your browser (port set in compose file).
+
+**Create Data**
+
+* Add data inside the container (e.g., create database, upload files).
+
+**Delete Container**
+
+```bash
+docker compose down
+```
+
+* Stops and removes the container, but data stays because it’s stored in a volume.
+
+---
+**Basic Docker Volume Commands**
+
+Create: `docker volume create v`
+List: `docker volume ls`
+Remove: `docker volume rm v`
+
+
+Gotcha, you want the **how-to** for mounting volumes **during `docker run`** with the difference between **named volumes**, **anonymous volumes**, and **bind mounts** — clean and precise, with the commands. Here’s the breakdown, corporate style:
+
+---
+
+### Mount Named Volume
+
+Persistent volume managed by Docker, shared by name.
+
+```bash
+docker run --volume myvol:/app/data ubuntu
+# or
+docker run --mount type=volume,src=myvol,dst=/app/data ubuntu
+```
+
+---
+
+### Mount Anonymous Volume
+
+Unnamed volume, Docker auto-generates it; useful for temp storage.
+
+```bash
+docker run --volume /app/data ubuntu
+# or
+docker run --mount type=volume,dst=/app/data ubuntu
+```
+
+---
+
+### Create Bind Mount
+
+Mount a specific host directory inside the container; direct path mapping.
+
+```bash
+docker run --volume /host/path:/container/path ubuntu
+# or
+docker run --mount type=bind,src=/host/path,dst=/container/path ubuntu
+```
+
+---
+
+### Key differences — Location & Behavior
+
+| Volume Type      | Host Location                                     | Behavior                                 |
+| ---------------- | ------------------------------------------------- | ---------------------------------------- |
+| Named Volume     | Docker-managed (e.g., `/var/lib/docker/volumes/`) | Persistent, reusable, Docker-controlled. |
+| Anonymous Volume | Docker-managed, auto-generated path               | Temporary, tied to container lifecycle.  |
+| Bind Mount       | Specific host directory                           | Direct sync between host & container.    |
+
+---
+
+
+### Remove All Unused Docker Networks
+
+Free up your Docker environment by pruning dangling networks not attached to any containers — optimizing resource utilization and keeping your infrastructure lean.
+
+```bash
+docker network prune
+```
+
+* This command **deletes all unused Docker networks** safely.
+* You’ll get a prompt to confirm before the cleanup.
+* Use the `-f` flag to force prune without confirmation:
+
+```bash
+docker network prune -f
+```
+
+---
+
+**Pro tip:** Run this regularly in your CI/CD cleanup scripts or dev workflows to avoid network clutter and potential IP conflicts.
+
+---
+
+### Docker Network: Bridge, Host, and None Explained
+
+---
+
+#### 1. Bridge (Default Network Driver)
+
+* **Definition:** The default Docker network driver creating a private internal network on the host.
+* **Function:** Connects containers on the same host using an isolated bridge network.
+* **Details:** Containers get IP addresses in a private subnet and communicate through this virtual bridge. External access requires port mapping via NAT.
+* **Use Case:** Ideal for standalone applications or development environments running multiple containers on a single host.
+
+---
+
+#### 2. Host
+
+* **Definition:** Network driver that makes the container share the host’s networking stack.
+* **Function:** Container uses the host’s IP address and network interfaces directly.
+* **Details:** No network isolation, so container ports map directly to the host ports without NAT or port forwarding.
+* **Use Case:** Suitable for performance-sensitive applications needing minimal network latency or direct access to host services.
+
+---
+
+#### 3. None
+
+* **Definition:** Network driver providing no networking for the container.
+* **Function:** Disables all network interfaces inside the container.
+* **Details:** The container is completely isolated from any network communication.
+* **Use Case:** Used for security-sensitive tasks or containers where network access is unnecessary.
+
+---
+
+<p align="center">
+  <strong>Thank you!</strong><br>
+</p>
+
